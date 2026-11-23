@@ -83,15 +83,21 @@ namespace Skill_DPS.Core
                 if (hoverUi != null && hoverUi.GetClientRect().Intersects(newBox) && hoverUi.IsVisibleLocal) continue;
 
                 if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesDamagePerSecond, out var val0))
-                    value = val0 / (decimal) 100d;
-                else if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAttacksPerSecond, out var val1))
-                    value = val1 / (decimal) 100d;
+                    value = val0 / (decimal)100d;
+                else if ((skill.Skill.Stats.TryGetValue(GameStat.SkillShowAverageDamageInsteadOfDps, out var fallback) && fallback > 0) ||
+                    (skill.Skill.Stats.TryGetValue(GameStat.BaseSkillShowAverageDamageInsteadOfDps, out var fallback2) && fallback2 > 0))
+                {
+                    if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAverageDamagePerHit, out var val1))
+                        value = val1 / (decimal)100d;
                 else if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAverageDamagePerSkillUse, out var val2))
-                    value = val2 / (decimal) 100d;
+                        value = val2 / (decimal)100d;
+                    else
+                        continue;
+                }
                 else if (skill.Skill.Stats.TryGetValue(GameStat.IntermediaryFireSkillDotDamageToDealPerMinute, out var val3))
-                    value = val3 / (decimal) 60;
-                else if (skill.Skill.Stats.TryGetValue(GameStat.BaseSkillShowAverageDamageInsteadOfDps, out var val4))
-                    value = val4 / (decimal) 100d;
+                    value = val3 / (decimal)60;
+                else if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAttacksPerSecond, out var val4))
+                    value = val4 / (decimal)100d;
                 else
                     continue;
 
