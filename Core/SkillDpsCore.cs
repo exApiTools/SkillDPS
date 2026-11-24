@@ -8,6 +8,7 @@ using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared.Cache;
 using ExileCore.Shared.Enums;
+using ExileCore.Shared.Helpers;
 using SharpDX;
 using Vector2 = System.Numerics.Vector2;
 
@@ -34,8 +35,6 @@ namespace Skill_DPS.Core
 
         private bool SkillDPSLogic()
         {
-            var hoverUi = GameController.Game.IngameState.UIHoverTooltip.Tooltip;
-
             var ids = GameController.IngameState.ServerData.SkillBarIds;
 
             if (ids == null || ids.Count == 0)
@@ -76,28 +75,30 @@ namespace Skill_DPS.Core
 
             foreach (var skill in skills)
             {
-                var box = skill.SkillElement.GetClientRect();
-                var newBox = new RectangleF(box.X, box.Y - 2, box.Width, -15);
-
-                decimal value;
-                if (hoverUi != null && hoverUi.GetClientRect().Intersects(newBox) && hoverUi.IsVisibleLocal) continue;
+                decimal value = default;
 
                 if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesDamagePerSecond, out var val0))
-                    value = val0 / (decimal) 100d;
-                else if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAttacksPerSecond, out var val1))
-                    value = val1 / (decimal) 100d;
-                else if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAverageDamagePerSkillUse, out var val2))
-                    value = val2 / (decimal) 100d;
+                    value = val0 / (decimal)100d;
+                else if ((skill.Skill.Stats.TryGetValue(GameStat.SkillShowAverageDamageInsteadOfDps, out var fallback) && fallback > 0) ||
+                    (skill.Skill.Stats.TryGetValue(GameStat.BaseSkillShowAverageDamageInsteadOfDps, out var fallback2) && fallback2 > 0))
+                {
+                    if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAverageDamagePerHit, out var val1))
+                        value = val1 / (decimal)100d;
+                    else if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAverageDamagePerSkillUse, out var val2))
+                        value = val2 / (decimal)100d;
+                    else
+                        continue;
+                }
                 else if (skill.Skill.Stats.TryGetValue(GameStat.IntermediaryFireSkillDotDamageToDealPerMinute, out var val3))
-                    value = val3 / (decimal) 60;
-                else if (skill.Skill.Stats.TryGetValue(GameStat.BaseSkillShowAverageDamageInsteadOfDps, out var val4))
-                    value = val4 / (decimal) 100d;
+                    value = val3 / (decimal)60;
+                else if (skill.Skill.Stats.TryGetValue(GameStat.HundredTimesAttacksPerSecond, out var val4))
+                    value = val4 / (decimal)100d;
                 else
                     continue;
 
                 skill.Value = value;
-                skill.Box = newBox;
-                skill.Pos = new Vector2(newBox.Center.X, newBox.Center.Y - Settings.FontSize / 2f);
+                skill.Text = ToKmb(value);
+                skill.Box = skill.SkillElement.GetClientRect();
             }
 
             return true;
@@ -110,18 +111,34 @@ namespace Skill_DPS.Core
             {
                 return;
             }
+            var hoverUi = GameController.Game.IngameState.UIHoverTooltip.Tooltip;
+            RectangleF? hoverRect = hoverUi != null && hoverUi.IsVisibleLocal ? hoverUi.GetClientRect() : null;
 
-            foreach (var skill in skills)
+            // Scale the core font size
+            using (Graphics.SetTextScale(Settings.FontScale))
             {
-                if (skill.Box.Location == SharpDX.Vector2.Zero || !skill.SkillElement.IsVisible)
-                    continue;
+                foreach (var skill in skills)
+                {
+                    if (skill.Text == null || !skill.SkillElement.IsVisible)
+                        continue;
 
-                Graphics.DrawText(ToKmb(Convert.ToDecimal(skill.Value)), skill.Pos, Settings.FontColor, Settings.FontSize, FontAlign.Center);
-                Graphics.DrawBox(skill.Box, Settings.BackgroundColor);
-                Graphics.DrawFrame(skill.Box, Settings.BorderColor, 1);
+                    // Size the box from the measured text: at least the slot's width, grow with text size
+                    var textSize = Graphics.MeasureText(skill.Text);
+                    var padX = MathF.Max(2f, textSize.Y * 0.1f);
+                    const float padY = 1f;
+                    var width = Math.Max(skill.Box.Width, textSize.X + 2 * padX);
+                    var height = textSize.Y + 2 * padY;
+                    var box = new RectangleF(skill.Box.Center.X - width / 2, skill.Box.Top - 2 - height, width, height);
+
+                    // Needs large margin because small secondary tooltip like "Skill can't be used" overwrites UIHoverTooltip
+                    if (hoverRect.HasValue && hoverRect.Value.Inflated(250, 250).Intersects(box))
+                        continue;
+
+                    Graphics.DrawBox(box, Settings.BackgroundColor);
+                    Graphics.DrawFrame(box, Settings.BorderColor, 1);
+                    Graphics.DrawText(skill.Text, new Vector2(box.Center.X, box.Top + padY), Settings.FontColor, FontAlign.Center);
+                }
             }
-            
-          
         }
 
         public static string ToKmb(decimal num)
@@ -171,7 +188,7 @@ namespace Skill_DPS.Core
 
             public RectangleF Box { get; set; }
             public decimal Value { get; set; }
-            public Vector2 Pos { get; set; }
+            public string Text { get; set; }
         }
     }
 }

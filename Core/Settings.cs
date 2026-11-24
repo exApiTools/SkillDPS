@@ -5,10 +5,9 @@ using SharpDX;
 
 namespace Skill_DPS.Core
 {
-    public class Settings : ISettings
-    {
-        [Menu("Font Size")]
-        public RangeNode<int> FontSize { get; set; } = new RangeNode<int>(15, 1, 50);
+    public class Settings : ISettings {
+        [Menu("Font Scale", "Multiplier on HUD core font size")]
+        public RangeNode<float> FontScale { get; set; } = new RangeNode<float>(1f, 0.5f, 2f);
 
         [Menu("Font Color")]
         public ColorNode FontColor { get; set; } = new Color(216, 216, 216, 255);
